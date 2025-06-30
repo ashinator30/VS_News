@@ -18,67 +18,78 @@ if (process.env.SENDGRID_API_KEY) {
     console.warn("⚠️ SendGrid API Key not found. Email sending will be disabled.");
 }
 
-// --- Initialize Gemini AI ---
+// --- Initialize Gemini AI (used for article summaries) ---
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
 /**
- * Creates a sophisticated, detailed prompt for the AI to generate a newsletter HTML.
- * This new prompt includes instructions for layout, images, and styling.
- * @param {Array} articles - The list of articles, including imageUrls.
+ * Generates the complete HTML for the newsletter using a professional, static template.
  * @param {string} title - The title of the newsletter.
- * @returns {string} The complete prompt for the AI model.
+ * @param {string} category - The CoE/category of the newsletter.
+ * @param {Array} articles - The array of summarized articles.
+ * @returns {string} The complete HTML for the newsletter.
  */
-const createAdvancedNewsletterHtmlPrompt = (articles, title) => {
-    // Prepare only the necessary article data for the prompt.
-    const articlesForPrompt = articles.map(a => ({
-        title: a.title,
-        summary: a.summary,
-        source: a.sourceName,
-        category: a.category,
-        originalUrl: a.originalUrl,
-        imageUrl: a.imageUrl // Include the image URL
-    }));
+const generateNewsletterHtml = (title, category, articles) => {
+    // --- Article Blocks ---
+    const articleBlocks = articles.map(article => `
+        <div class="article" style="margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px solid #eeeeee;">
+            ${article.imageUrl ? `<img src="${article.imageUrl}" alt="${article.title}" style="max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 15px;">` : ''}
+            <h3 style="font-size: 20px; color: #333333; margin-top: 0; margin-bottom: 5px;">
+                <a href="${article.originalUrl}" target="_blank" style="text-decoration: none; color: #0056b3;">${article.title}</a>
+            </h3>
+            <p style="font-size: 12px; color: #666666; margin-bottom: 15px;">
+                Source: <em>${article.sourceName}</em>
+            </p>
+            <p style="font-size: 16px; color: #555555; line-height: 1.6;">
+                ${article.summary}
+            </p>
+        </div>
+    `).join('');
 
-    // The revised, simpler prompt
+    // --- Main HTML Template ---
     return `
-        Act as an expert HTML and CSS email designer. Your task is to generate a single, complete HTML file for a professional newsletter based on the provided JSON data. The design should be clean, readable, and render reliably as a PDF.
-
-        **Design & Layout Guidelines:**
-
-        1.  **Overall Structure:**
-            * Use a main container with a max-width of 600px and center it using inline styles (margin: 20px auto;).
-            * The main content area should have a white background (background-color: #ffffff;).
-            * Use a consistent font family like 'Arial, sans-serif' for broad compatibility.
-
-        2.  **Header Section:**
-            * Create a clear header.
-            * Prominently display the main newsletter title: "${title}" (font-size: 24px; font-weight: bold; color: #333333; padding-bottom: 10px; border-bottom: 2px solid #eeeeee; margin-bottom: 20px; text-align: center;).
-            * Below the title, include the Date (${format(new Date(), 'PP')}) and "Edition 1, Volume 1" (display: block; font-size: 12px; color: #777777; text-align: center; margin-bottom: 15px;).
-
-        3.  **Article Layout (Single Column):**
-            * Each article should be separated by a subtle divider (border-bottom: 1px solid #eeeeee; padding-bottom: 20px; margin-bottom: 20px;). The last article should not have this bottom border.
-            * If an \`imageUrl\` is provided for an article, include it at the top of the article section. The image should be responsive within the 600px container (\`max-width: 100%; height: auto; display: block; margin-bottom: 10px; border-radius: 5px;\`).
-            * The article's \`title\` MUST be a clickable hyperlink pointing to its \`originalUrl\` (display: block; font-size: 18px; font-weight: bold; color: #007bff; text-decoration: none; margin-bottom: 5px;).
-            * Display the \`source\` name in a smaller, muted font (display: block; font-size: 11px; color: #555555; margin-bottom: 8px;).
-            * Display the \`summary\` as the main body text for the article (font-size: 14px; color: #444444; line-height: 1.5;).
-
-        4.  **Pull Quote Section:**
-            * After the first or second article, include a clearly marked "Quote:" section.
-            * Use a background color (background-color: #f9f9f9; padding: 15px; border-left: 5px solid #cccccc; margin: 20px 0;).
-            * For the quote, use the summary of the first article. Style it as italic (font-style: italic; color: #666666;).
-
-        5.  **Styling (Inline CSS):**
-            * **ALL CSS MUST BE APPLIED AS INLINE STYLES directly to the HTML elements.** This ensures maximum compatibility with PDF renderers. Do not use <style> tags or external stylesheets.
-            * Focus on basic styles like font-size, color, background-color, margin, padding, border, text-decoration, display, and text-align.
-
-        **JSON Data to Use:**
-        \`\`\`json
-        ${JSON.stringify(articlesForPrompt, null, 2)}
-        \`\`\`
-
-        **IMPORTANT: Your response MUST be only the raw HTML code, starting with <!DOCTYPE html> and containing all the specified elements with INLINE STYLES. Do not add any commentary, explanations, or markdown formatting before or after the code block.**
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f4;">
+            <tr>
+                <td align="center">
+                    <table width="600" border="0" cellspacing="0" cellpadding="20" style="background-color: #ffffff; margin: 20px 0; max-width: 600px;">
+                        <tr>
+                            <td align="center" style="background-color: #00447c; padding: 30px 20px; color: #ffffff; border-radius: 8px 8px 0 0;">
+                                <h1 style="margin: 0; font-size: 28px;">${category} Newsletter</h1>
+                                <p style="margin: 5px 0 0; font-size: 16px;">${title}</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="padding: 10px 20px; background-color: #eeeeee; font-size: 14px; color: #555555;">
+                                ${format(new Date(), 'MMMM d, yyyy')}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 30px 20px;">
+                                ${articleBlocks}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="padding: 20px; font-size: 12px; color: #aaaaaa; border-top: 1px solid #eeeeee;">
+                                <p>&copy; ${new Date().getFullYear()} Your Company. All rights reserved.</p>
+                                <p>This is an automated newsletter. Please do not reply.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
     `;
 };
+
 
 // GET all newsletters for the logged-in admin's categories
 router.get('/', auth, async (req, res) => {
@@ -97,10 +108,6 @@ router.get('/', auth, async (req, res) => {
 
 // POST to generate, save, and send the new PDF
 router.post('/generate-and-save', auth, async (req, res) => {
-    if (!genAI) {
-        return res.status(500).json({ message: 'Gemini API client is not initialized.' });
-    }
-    
     try {
         const { articles, title, category } = req.body;
         console.log(`[PDF LOG] Received request for newsletter: "${title}"`);
@@ -109,20 +116,12 @@ router.post('/generate-and-save', auth, async (req, res) => {
             return res.status(400).json({ message: 'Title, category, and articles are required.' });
         }
 
-        // 1. Generate HTML with AI using the new advanced prompt
-        console.log("[PDF LOG] Generating HTML with advanced prompt...");
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        const prompt = createAdvancedNewsletterHtmlPrompt(articles, title); // Using the new function
-        
-        const result = await model.generateContent(prompt);
-        let generatedHtml = result.response.text().replace(/^```html\n/, '').replace(/\n```$/, '');
+        // 1. Generate HTML using the new static template function
+        console.log("[PDF LOG] Generating HTML with the static template...");
+        const generatedHtml = generateNewsletterHtml(title, category, articles);
+        console.log("[PDF LOG] Successfully generated HTML.");
 
-        if (!generatedHtml || generatedHtml.length < 100) {
-            throw new Error('AI returned an empty or invalid HTML response.');
-        }
-        console.log("[PDF LOG] Successfully received HTML from AI.");
-
-        // 2. Convert HTML to PDF
+        // 2. Convert HTML to PDF with Puppeteer
         const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         await page.setContent(generatedHtml, { waitUntil: 'networkidle0' });
@@ -143,14 +142,6 @@ router.post('/generate-and-save', auth, async (req, res) => {
         });
         await newNewsletter.save();
         console.log(`[PDF LOG] Successfully saved newsletter with ID: ${newNewsletter._id}`);
-        
-        const notification = new Notification({
-            user: req.user,
-            newsletter: newNewsletter._id,
-            message: `New newsletter "${newNewsletter.title}" generated. Check it out in "Newsletter History" to share and view.`,
-            actionUrl: '/dashboard?tab=generated-newsletters'
-        });
-        await notification.save();
         
         // 4. Send the generated PDF back to the client
         res.setHeader('Content-Type', 'application/pdf');
@@ -214,13 +205,23 @@ router.post('/:id/send', auth, async (req, res) => {
             return res.status(404).json({ message: 'Newsletter not found.' });
         }
         if (process.env.SENDGRID_API_KEY) {
-            const recipients = await User.find({ '_id': { $in: userIds } }).select('email');
+            const recipients = await User.find({ '_id': { $in: userIds } }).select('email name');
             if (recipients.length > 0) {
                  const msg = {
                     to: recipients.map(r => r.email),
                     from: { name: 'NewsLetterAI', email: process.env.FROM_EMAIL },
-                    subject: `Your Newsletter: ${newsletter.title}`,
-                    html: `<p>A new newsletter, <strong>${newsletter.title}</strong>, is now available. Please find it attached.</p>`,
+                    subject: `Your New ${newsletter.category} Newsletter: ${newsletter.title}`,
+                    html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                        <h2>Hello,</h2>
+                        <p>Your new issue of the <strong>${newsletter.category}</strong> newsletter, titled "<strong>${newsletter.title}</strong>," is here!</p>
+                        <p>We've curated the latest news and insights for you. You can find the full newsletter attached to this email.</p>
+                        <p>Happy reading!</p>
+                        <br>
+                        <p>Best regards,</p>
+                        <p><strong>The NewsLetterAI Team</strong></p>
+                    </div>
+                    `,
                     attachments: [{
                         content: newsletter.pdfContent.data.toString('base64'),
                         filename: `${newsletter.title.replace(/\s/g, '_')}.pdf`,
